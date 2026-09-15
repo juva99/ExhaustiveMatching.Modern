@@ -45,12 +45,61 @@ var result = coinFlip switch
 };
 ```
 
-The analyzer understands logical enum patterns:
+## Modern pattern examples
+
+### `or` patterns
+
+Combine multiple declared enum values in one arm:
 
 ```csharp
 var category = coinFlip switch
 {
     CoinFlip.Heads or CoinFlip.Tails => "Known outcome",
+    _ => throw ExhaustiveMatch.Failed(coinFlip),
+};
+```
+
+Nullable enum switches can combine logical patterns with an explicit `null`
+case:
+
+```csharp
+var message = nullableCoinFlip switch
+{
+    null => "No result",
+    CoinFlip.Heads or CoinFlip.Tails => "Known result",
+    _ => throw ExhaustiveMatch.Failed(nullableCoinFlip),
+};
+```
+
+### Relational and `and` patterns
+
+Relational patterns are evaluated against the enum's declared values:
+
+```csharp
+public enum Priority
+{
+    Low = 1,
+    Medium = 2,
+    High = 3,
+    Critical = 4,
+}
+
+var queue = priority switch
+{
+    <= Priority.Medium => "Normal",
+    > Priority.Medium and <= Priority.Critical => "Urgent",
+    _ => throw ExhaustiveMatch.Failed(priority),
+};
+```
+
+The analyzer unions `or` coverage, intersects `and` coverage, and complements
+safe `not` patterns. Parentheses can be used to control grouping:
+
+```csharp
+// EM0001: Enum value not handled by switch: CoinFlip.Heads
+var result = coinFlip switch
+{
+    not (CoinFlip.Heads) => "Not heads",
     _ => throw ExhaustiveMatch.Failed(coinFlip),
 };
 ```
@@ -63,11 +112,11 @@ Use `ClosedAttribute` to define the direct cases of a class or interface:
 using ExhaustiveMatching;
 
 [Closed(typeof(Circle), typeof(Rectangle), typeof(Triangle))]
-public abstract class Shape;
+public abstract record Shape;
 
-public sealed class Circle : Shape;
-public sealed class Rectangle : Shape;
-public sealed class Triangle : Shape;
+public sealed record Circle(double Radius) : Shape;
+public sealed record Rectangle(double Width, double Height) : Shape;
+public sealed record Triangle(double Base, double Height) : Shape;
 ```
 
 The analyzer reports any concrete case not covered by the switch:
@@ -93,6 +142,47 @@ var kind = shape switch
 };
 ```
 
+A `not` pattern contributes the safe complement of its operand for class
+hierarchies:
+
+```csharp
+// EM0003: Subtype not handled by switch: Triangle
+var kind = shape switch
+{
+    not Triangle => "Not a triangle",
+    _ => throw ExhaustiveMatch.Failed(shape),
+};
+```
+
+Total positional and property patterns can capture data while covering their
+whole subtype:
+
+```csharp
+var dimensions = shape switch
+{
+    Circle(var radius) => $"radius={radius}",
+    Rectangle { Width: var width, Height: var height }
+        => $"{width} x {height}",
+    Triangle(var @base, var height) => $"base={@base}, height={height}",
+    _ => throw ExhaustiveMatch.Failed(shape),
+};
+```
+
+Value constraints are intentionally conservative because they do not cover
+every instance of a subtype:
+
+```csharp
+// EM0101: this constrained pattern cannot prove full subtype coverage
+// EM0003: Circle is still considered unhandled
+var description = shape switch
+{
+    Circle { Radius: > 0 } => "Non-empty circle",
+    Rectangle => "Rectangle",
+    Triangle => "Triangle",
+    _ => throw ExhaustiveMatch.Failed(shape),
+};
+```
+
 A case may also cover a closed branch higher in a nested hierarchy. All concrete
 leaf types below that branch count as handled.
 
@@ -111,7 +201,7 @@ or concrete leaves in a closed hierarchy.
 | Relational | Yes | No |
 | `null` | Yes | Ignored by design |
 | `var` and discard | Yes | Yes |
-| Property/positional/recursive | N/A | When constraints are provably total |
+| Property/positional/recursive | When constraints are provably total | When constraints are provably total |
 | List and slice | Conservative | Conservative |
 
 Patterns whose coverage cannot be proven produce `EM0101` and do not suppress a
