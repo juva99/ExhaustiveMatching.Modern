@@ -120,6 +120,7 @@ namespace ExhaustiveMatching.Analyzer
             }
 
             var typeSyntaxes = closedAttributes
+                        .Where(a => a.ArgumentList != null)
                         .SelectMany(a => a.ArgumentList.Arguments)
                         .Select(arg => arg.Expression)
                         .OfType<TypeOfExpressionSyntax>()

@@ -42,7 +42,7 @@ namespace ExhaustiveMatching.Analyzer.Enums.Tests
         }
 
         [Fact]
-        public async Task NotExhaustiveWithPatternCaseReportsDiagnostic()
+        public async Task ExhaustiveWithDeclarationPatternReportsNoDiagnostic()
         {
             const string args = "CoinFlip coinFlip";
             const string test = @"
@@ -58,15 +58,7 @@ namespace ExhaustiveMatching.Analyzer.Enums.Tests
                 break;
         }";
 
-            var source = CodeContext.CoinFlip(args, test);
-            var expectedTails = DiagnosticResult
-                                .Error("EM0001", "Enum value not handled by switch 'CoinFlip.Tails'")
-                                .AddLocation(source, 1);
-            var casePattern = DiagnosticResult
-                              .Error("EM0101", "Case pattern not supported in exhaustive switch on enum type 'case CoinFlip flip:'")
-                              .AddLocation(source, 2);
-
-            await VerifyCSharpDiagnosticsAsync(source, expectedTails, casePattern);
+            await VerifyCSharpDiagnosticsAsync(CodeContext.CoinFlip(args, test));
         }
 
         [Fact]
@@ -189,6 +181,90 @@ namespace ExhaustiveMatching.Analyzer.Enums.Tests
                                                 .AddLocation(source, 1);
 
             await VerifyCSharpDiagnosticsAsync(source, cannotConvert);
+        }
+
+        [Fact]
+        public async Task ExhaustiveWithLogicalPatternReportsNoDiagnostic()
+        {
+            const string args = "CoinFlip coinFlip";
+            const string test = @"
+        switch (coinFlip)
+        {
+            default:
+                throw new InvalidEnumArgumentException(nameof(coinFlip), (int)coinFlip, typeof(CoinFlip));
+            case CoinFlip.Heads or CoinFlip.Tails:
+                Console.WriteLine(coinFlip);
+                break;
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.CoinFlip(args, test));
+        }
+
+        [Fact]
+        public async Task NotPatternReportsExcludedEnumValue()
+        {
+            const string args = "CoinFlip coinFlip";
+            const string test = @"
+        ◊1⟦switch⟧ (coinFlip)
+        {
+            default:
+                throw new InvalidEnumArgumentException(nameof(coinFlip), (int)coinFlip, typeof(CoinFlip));
+            case not CoinFlip.Heads:
+                Console.WriteLine(""not heads"");
+                break;
+        }";
+
+            var source = CodeContext.CoinFlip(args, test);
+            var expected = DiagnosticResult
+                           .Error("EM0001", "Enum value not handled by switch 'CoinFlip.Heads'")
+                           .AddLocation(source, 1);
+
+            await VerifyCSharpDiagnosticsAsync(source, expected);
+        }
+
+        [Fact]
+        public async Task RelationalPatternReportsNoDiagnostic()
+        {
+            const string args = "DayOfWeek dayOfWeek";
+            const string test = @"
+        switch (dayOfWeek)
+        {
+            default:
+                throw new InvalidEnumArgumentException(nameof(dayOfWeek), (int)dayOfWeek, typeof(DayOfWeek));
+            case >= DayOfWeek.Sunday and <= DayOfWeek.Saturday:
+                Console.WriteLine(dayOfWeek);
+                break;
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.Basic(args, test));
+        }
+
+        [Fact]
+        public async Task GuardedPatternDoesNotCoverValue()
+        {
+            const string args = "CoinFlip coinFlip";
+            const string test = @"
+        ◊1⟦switch⟧ (coinFlip)
+        {
+            default:
+                throw new InvalidEnumArgumentException(nameof(coinFlip), (int)coinFlip, typeof(CoinFlip));
+            case CoinFlip.Heads ◊2⟦when true⟧:
+                Console.WriteLine(""Heads"");
+                break;
+        }";
+
+            var source = CodeContext.CoinFlip(args, test);
+            var expectedHeads = DiagnosticResult
+                                .Error("EM0001", "Enum value not handled by switch 'CoinFlip.Heads'")
+                                .AddLocation(source, 1);
+            var expectedTails = DiagnosticResult
+                                .Error("EM0001", "Enum value not handled by switch 'CoinFlip.Tails'")
+                                .AddLocation(source, 1);
+            var expectedGuard = DiagnosticResult
+                                .Error("EM0100", "When guard is not supported in an exhaustive switch")
+                                .AddLocation(source, 2);
+
+            await VerifyCSharpDiagnosticsAsync(source, expectedHeads, expectedTails, expectedGuard);
         }
 
         protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()

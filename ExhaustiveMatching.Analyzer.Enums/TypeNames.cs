@@ -7,6 +7,8 @@ namespace ExhaustiveMatching.Analyzer.Enums
     /// distribute that assembly as part of the analyzer in addition to the actual dependencies.</remarks>
     internal static class TypeNames
     {
+        public const string ExhaustiveMatchFailedException =
+            "ExhaustiveMatching.ExhaustiveMatchFailedException";
         public static readonly string Nullable = typeof(System.Nullable<>).FullName;
     }
 }

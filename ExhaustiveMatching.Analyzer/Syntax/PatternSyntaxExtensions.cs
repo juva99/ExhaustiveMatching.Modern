@@ -7,8 +7,15 @@ namespace ExhaustiveMatching.Analyzer.Syntax
     {
         public static bool IsNullPattern(this PatternSyntax pattern)
         {
-            return pattern is ConstantPatternSyntax constantPattern
-                   && constantPattern.Expression.IsNullLiteral();
+            switch (pattern)
+            {
+                case ConstantPatternSyntax constantPattern:
+                    return constantPattern.Expression.IsNullConstantExpression();
+                case ParenthesizedPatternSyntax parenthesized:
+                    return parenthesized.Pattern.IsNullPattern();
+                default:
+                    return false;
+            }
         }
     }
 }

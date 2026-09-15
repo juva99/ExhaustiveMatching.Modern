@@ -64,6 +64,7 @@ namespace ExhaustiveMatching.Analyzer.Semantics
             return type.GetAttributes()
                        .Where(attr => attr.AttributeClass.Equals(closedAttributeType))
                        .Select(attr => attr.ApplicationSyntaxReference.GetSyntax()).Cast<AttributeSyntax>()
+                       .Where(attr => attr.ArgumentList != null)
                        .SelectMany(attr => attr.ArgumentList.Arguments)
                        .Select(arg => arg.Expression)
                        .OfType<TypeOfExpressionSyntax>()
@@ -82,7 +83,7 @@ namespace ExhaustiveMatching.Analyzer.Semantics
                        .SelectMany(a => a.ConstructorArguments)
                        .SelectMany(GetTypeConstants)
                        .Select(arg => arg.Value)
-                       .Cast<ITypeSymbol>();
+                       .OfType<ITypeSymbol>();
         }
 
         public static IEnumerable<ITypeSymbol> GetValidCaseTypes(
@@ -113,9 +114,10 @@ namespace ExhaustiveMatching.Analyzer.Semantics
                     yield return constant;
                     break;
                 case TypedConstantKind.Array:
-                    foreach (var constantValue in constant.Values)
-                        if (constantValue.Kind == TypedConstantKind.Type)
-                            yield return constantValue;
+                    if (!constant.Values.IsDefault)
+                        foreach (var constantValue in constant.Values)
+                            if (constantValue.Kind == TypedConstantKind.Type)
+                                yield return constantValue;
                     break;
             }
         }

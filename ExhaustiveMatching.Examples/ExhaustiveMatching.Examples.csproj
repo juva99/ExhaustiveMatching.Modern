@@ -1,13 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Examples</RootNamespace>
-    <LangVersion>9.0</LangVersion>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ExhaustiveMatching.Analyzer" Version="0.5.0" />
+    <ProjectReference Include="..\ExhaustiveMatching\ExhaustiveMatching.csproj" />
+    <ProjectReference Include="..\ExhaustiveMatching.Analyzer\ExhaustiveMatching.Analyzer.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

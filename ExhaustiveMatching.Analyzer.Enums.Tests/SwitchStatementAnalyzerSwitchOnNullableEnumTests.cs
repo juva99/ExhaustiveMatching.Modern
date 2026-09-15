@@ -230,6 +230,28 @@ namespace ExhaustiveMatching.Analyzer.Enums.Tests
             await VerifyCSharpDiagnosticsAsync(source, expectedFriday);
         }
 
+        [Fact]
+        public async Task NotNullPatternCoversValuesButNotNull()
+        {
+            const string args = "CoinFlip? coinFlip";
+            const string test = @"
+        ◊1⟦switch⟧ (coinFlip)
+        {
+            default:
+                throw new InvalidEnumArgumentException(nameof(coinFlip), (int)coinFlip, typeof(CoinFlip));
+            case not null:
+                Console.WriteLine(""value"");
+                break;
+        }";
+
+            var source = CodeContext.CoinFlip(args, test);
+            var expected = DiagnosticResult
+                           .Error("EM0002", "'null' value not handled by switch")
+                           .AddLocation(source, 1);
+
+            await VerifyCSharpDiagnosticsAsync(source, expected);
+        }
+
         protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()
             => new ExhaustiveMatchEnumAnalyzer();
     }

@@ -12,7 +12,7 @@ namespace ExhaustiveMatching.Analyzer.Enums
     {
         public static ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
             => ImmutableArray.Create(NotExhaustiveEnumSwitch, NotExhaustiveNullableEnumSwitch,
-                CasePatternNotSupported);
+                CasePatternNotSupported, WhenGuardNotSupported);
 
         public static void ReportNotExhaustiveEnumSwitch(
             SyntaxNodeAnalysisContext context,
@@ -46,6 +46,19 @@ namespace ExhaustiveMatching.Analyzer.Enums
             => context.ReportDiagnostic(Diagnostic.Create(CasePatternNotSupported,
                 switchLabel.GetLocation(), switchLabel));
 
+        public static void ReportCasePatternNotSupported(
+            SyntaxNodeAnalysisContext context,
+            PatternSyntax pattern)
+            => context.ReportDiagnostic(Diagnostic.Create(CasePatternNotSupported,
+                pattern.GetLocation(), pattern));
+
+        public static void ReportWhenClauseNotSupported(
+            SyntaxNodeAnalysisContext context,
+            WhenClauseSyntax whenClause)
+            => context.ReportDiagnostic(Diagnostic.Create(
+                WhenGuardNotSupported,
+                whenClause.GetLocation()));
+
         private static readonly LocalizableString EM0001Title = LoadString(nameof(Resources.EM0001Title));
         private static readonly LocalizableString EM0001Message = LoadString(nameof(Resources.EM0001Message));
         private static readonly LocalizableString EM0001Description = LoadString(Resources.EM0001Description);
@@ -69,6 +82,16 @@ namespace ExhaustiveMatching.Analyzer.Enums
         private static readonly DiagnosticDescriptor CasePatternNotSupported
             = new DiagnosticDescriptor("EM0101", EM0101Title, EM0101Message, Category,
                 DiagnosticSeverity.Error, isEnabledByDefault: true, EM0101Description);
+
+        private static readonly DiagnosticDescriptor WhenGuardNotSupported
+            = new DiagnosticDescriptor(
+                "EM0100",
+                "When Guards Not Supported",
+                "When guard is not supported in an exhaustive switch",
+                Category,
+                DiagnosticSeverity.Error,
+                isEnabledByDefault: true,
+                "An exhaustive switch does not support cases with when guards.");
 
         private static LocalizableResourceString LoadString(string name)
             => new LocalizableResourceString(name, Resources.ResourceManager, typeof(Resources));

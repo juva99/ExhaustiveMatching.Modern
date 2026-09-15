@@ -111,6 +111,272 @@ namespace ExhaustiveMatching.Analyzer.Tests
         }
 
         [Fact]
+        public async Task LogicalEnumPatternsCoverDeclaredValues()
+        {
+            const string args = "CoinFlip coinFlip";
+            const string test = @"
+        switch (coinFlip)
+        {
+            case CoinFlip.Heads or CoinFlip.Tails:
+                Console.WriteLine(coinFlip);
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(coinFlip);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.CoinFlip(args, test));
+        }
+
+        [Fact]
+        public async Task EnumDeclarationPatternCoversDeclaredValues()
+        {
+            const string args = "CoinFlip coinFlip";
+            const string test = @"
+        switch (coinFlip)
+        {
+            case CoinFlip value:
+                Console.WriteLine(value);
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(coinFlip);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.CoinFlip(args, test));
+        }
+
+        [Fact]
+        public async Task EnumBaseTypePatternCoversDeclaredValues()
+        {
+            const string args = "CoinFlip coinFlip";
+            const string test = @"
+        switch (coinFlip)
+        {
+            case Enum:
+                Console.WriteLine(""enum"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(coinFlip);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.CoinFlip(args, test));
+        }
+
+        [Fact]
+        public async Task NullableEnumLogicalPatternCoversNull()
+        {
+            const string args = "CoinFlip? coinFlip";
+            const string test = @"
+        switch (coinFlip)
+        {
+            case CoinFlip.Heads or null:
+                Console.WriteLine(""Heads or null"");
+                break;
+            case CoinFlip.Tails:
+                Console.WriteLine(""Tails"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(coinFlip);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.CoinFlip(args, test));
+        }
+
+        [Fact]
+        public async Task EnumNotPatternReportsExcludedValue()
+        {
+            const string args = "CoinFlip coinFlip";
+            const string test = @"
+        ◊1⟦switch⟧ (coinFlip)
+        {
+            case not CoinFlip.Heads:
+                Console.WriteLine(""not heads"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(coinFlip);
+        }";
+
+            var source = CodeContext.CoinFlip(args, test);
+            var expected = DiagnosticResult
+                           .Error("EM0001", "Enum value not handled by switch: CoinFlip.Heads")
+                           .AddLocation(source, 1);
+
+            await VerifyCSharpDiagnosticsAsync(source, expected);
+        }
+
+        [Fact]
+        public async Task EnumRelationalPatternCoversRange()
+        {
+            const string args = "RangeEnum value";
+            const string test = @"
+        switch (value)
+        {
+            case >= RangeEnum.Low and < RangeEnum.High:
+                Console.WriteLine(""range"");
+                break;
+            case RangeEnum.High:
+                Console.WriteLine(""high"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(value);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.RangeEnum(args, test));
+        }
+
+        [Fact]
+        public async Task WideEnumValuesUseExactUnderlyingType()
+        {
+            const string args = "WideEnum value";
+            const string test = @"
+        switch (value)
+        {
+            case WideEnum.Low:
+                Console.WriteLine(""low"");
+                break;
+            case WideEnum.High:
+                Console.WriteLine(""high"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(value);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.WideEnum(args, test));
+        }
+
+        [Fact]
+        public async Task UnsignedWideEnumValuesUseExactUnderlyingType()
+        {
+            const string args = "UnsignedWideEnum value";
+            const string test = @"
+        switch (value)
+        {
+            case UnsignedWideEnum.Low:
+                Console.WriteLine(""low"");
+                break;
+            case UnsignedWideEnum.High:
+                Console.WriteLine(""high"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(value);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.WideEnum(args, test));
+        }
+
+        [Fact]
+        public async Task GuardedEnumPatternDoesNotCoverValue()
+        {
+            const string args = "CoinFlip coinFlip";
+            const string test = @"
+        ◊1⟦switch⟧ (coinFlip)
+        {
+            case CoinFlip.Heads ◊2⟦when true⟧:
+                Console.WriteLine(""Heads"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(coinFlip);
+        }";
+
+            var source = CodeContext.CoinFlip(args, test);
+            var expectedHeads = DiagnosticResult
+                                .Error("EM0001", "Enum value not handled by switch: CoinFlip.Heads")
+                                .AddLocation(source, 1);
+            var expectedTails = DiagnosticResult
+                                .Error("EM0001", "Enum value not handled by switch: CoinFlip.Tails")
+                                .AddLocation(source, 1);
+            var expectedGuard = DiagnosticResult
+                                .Error("EM0100", "When guard is not supported in an exhaustive switch")
+                                .AddLocation(source, 2);
+
+            await VerifyCSharpDiagnosticsAsync(source, expectedHeads, expectedTails, expectedGuard);
+        }
+
+        [Fact]
+        public async Task NullableEnumCastNullCaseIsRecognized()
+        {
+            const string args = "CoinFlip? coinFlip";
+            const string test = @"
+        switch (coinFlip)
+        {
+            case (CoinFlip?)null:
+                Console.WriteLine(""null"");
+                break;
+            case CoinFlip.Heads:
+                Console.WriteLine(""Heads"");
+                break;
+            case CoinFlip.Tails:
+                Console.WriteLine(""Tails"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(coinFlip);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.CoinFlip(args, test));
+        }
+
+        [Fact]
+        public async Task NullableEnumParenthesizedNullCaseIsRecognized()
+        {
+            const string args = "CoinFlip? coinFlip";
+            const string test = @"
+        switch (coinFlip)
+        {
+            case (null):
+                Console.WriteLine(""null"");
+                break;
+            case CoinFlip.Heads:
+                Console.WriteLine(""Heads"");
+                break;
+            case CoinFlip.Tails:
+                Console.WriteLine(""Tails"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(coinFlip);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.CoinFlip(args, test));
+        }
+
+        [Fact]
+        public async Task NullableEnumVarPatternCoversNullAndValues()
+        {
+            const string args = "CoinFlip? coinFlip";
+            const string test = @"
+        switch (coinFlip)
+        {
+            case var value:
+                Console.WriteLine(value);
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(coinFlip);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.CoinFlip(args, test));
+        }
+
+        [Fact]
+        public async Task NullableEnumNotNullPatternCoversValuesButNotNull()
+        {
+            const string args = "CoinFlip? coinFlip";
+            const string test = @"
+        ◊1⟦switch⟧ (coinFlip)
+        {
+            case not null:
+                Console.WriteLine(""value"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(coinFlip);
+        }";
+
+            var source = CodeContext.CoinFlip(args, test);
+            var expected = DiagnosticResult
+                           .Error("EM0002", "null value not handled by switch")
+                           .AddLocation(source, 1);
+
+            await VerifyCSharpDiagnosticsAsync(source, expected);
+        }
+
+        [Fact]
         public async Task SwitchOnClosedThrowingExhaustiveMatchFailedIsNotExhaustiveReportsDiagnostic()
         {
             const string args = "Shape shape";
@@ -133,6 +399,366 @@ namespace ExhaustiveMatching.Analyzer.Tests
                                    .AddLocation(source, 1);
 
             await VerifyCSharpDiagnosticsAsync(source, expectedCircle, expectedTriangle);
+        }
+
+        [Fact]
+        public async Task ClosedOrPatternCoversCases()
+        {
+            const string args = "Shape shape";
+            const string test = @"
+        ◊1⟦switch⟧ (shape)
+        {
+            case Square or Circle:
+                Console.WriteLine(""known"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(shape);
+        }";
+
+            var source = CodeContext.Shapes(args, test);
+            var expected = DiagnosticResult
+                           .Error("EM0003", "Subtype not handled by switch: TestNamespace.Triangle")
+                           .AddLocation(source, 1);
+
+            await VerifyCSharpDiagnosticsAsync(source, expected);
+        }
+
+        [Fact]
+        public async Task ClosedAndPatternUsesIntersection()
+        {
+            const string args = "Shape shape";
+            const string test = @"
+        ◊1⟦switch⟧ (shape)
+        {
+            case Square and Shape:
+                Console.WriteLine(""square"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(shape);
+        }";
+
+            var source = CodeContext.Shapes(args, test);
+            var expectedCircle = DiagnosticResult
+                                 .Error("EM0003", "Subtype not handled by switch: TestNamespace.Circle")
+                                 .AddLocation(source, 1);
+            var expectedTriangle = DiagnosticResult
+                                   .Error("EM0003", "Subtype not handled by switch: TestNamespace.Triangle")
+                                   .AddLocation(source, 1);
+
+            await VerifyCSharpDiagnosticsAsync(source, expectedCircle, expectedTriangle);
+        }
+
+        [Fact]
+        public async Task ClosedNotPatternUsesClassComplement()
+        {
+            const string args = "Shape shape";
+            const string test = @"
+        ◊1⟦switch⟧ (shape)
+        {
+            case not Square:
+                Console.WriteLine(""not square"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(shape);
+        }";
+
+            var source = CodeContext.Shapes(args, test);
+            var expected = DiagnosticResult
+                           .Error("EM0003", "Subtype not handled by switch: TestNamespace.Square")
+                           .AddLocation(source, 1);
+
+            await VerifyCSharpDiagnosticsAsync(source, expected);
+        }
+
+        [Fact]
+        public async Task ClosedNotNullPatternCoversNonNullCases()
+        {
+            const string args = "Shape shape";
+            const string test = @"
+        switch (shape)
+        {
+            case not null:
+                Console.WriteLine(""non-null"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(shape);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.Shapes(args, test));
+        }
+
+        [Fact]
+        public async Task ClosedParenthesizedPatternCoversCases()
+        {
+            const string args = "Shape shape";
+            const string test = @"
+        ◊1⟦switch⟧ (shape)
+        {
+            case (Square or Circle):
+                Console.WriteLine(""square or circle"");
+                break;
+            case Triangle:
+                Console.WriteLine(""triangle"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(shape);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.Shapes(args, test));
+        }
+
+        [Fact]
+        public async Task ClosedEmptyPropertyPatternCoversCases()
+        {
+            const string args = "Shape shape";
+            const string test = @"
+        ◊1⟦switch⟧ (shape)
+        {
+            case Shape { }:
+                Console.WriteLine(""shape"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(shape);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.Shapes(args, test));
+        }
+
+        [Fact]
+        public async Task ClosedConstrainedPropertyPatternIsConservative()
+        {
+            const string args = "Shape shape";
+            const string test = @"
+        ◊1⟦switch⟧ (shape)
+        {
+            case ◊2⟦Square { Value: 1 }⟧:
+                Console.WriteLine(""one"");
+                break;
+            case Circle:
+                Console.WriteLine(""circle"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(shape);
+        }";
+
+            var source = CodeContext.ShapesWithProperty(args, test);
+            var expectedMissing = DiagnosticResult
+                                  .Error("EM0003", "Subtype not handled by switch: TestNamespace.Square")
+                                  .AddLocation(source, 1);
+            var expectedUnsupported = DiagnosticResult
+                                     .Error("EM0101", "Case pattern not supported in exhaustive switch: Square { Value: 1 }")
+                                     .AddLocation(source, 2);
+
+            await VerifyCSharpDiagnosticsAsync(source, expectedMissing, expectedUnsupported);
+        }
+
+        [Fact]
+        public async Task MalformedRecursivePatternDoesNotSuppressMissingCase()
+        {
+            const string args = "Shape shape";
+            const string test = @"
+        ◊1⟦switch⟧ (shape)
+        {
+            case ◊2⟦Square { ◊3⟦Missing⟧: var _ }⟧:
+                Console.WriteLine(""invalid"");
+                break;
+            case Circle:
+                Console.WriteLine(""circle"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(shape);
+        }";
+
+            var source = CodeContext.ShapesWithProperty(args, test);
+            var expectedMissing = DiagnosticResult
+                                  .Error("EM0003", "Subtype not handled by switch: TestNamespace.Square")
+                                  .AddLocation(source, 1);
+            var expectedUnsupported = DiagnosticResult
+                                     .Error("EM0101", "Case pattern not supported in exhaustive switch: Square { Missing: var _ }")
+                                     .AddLocation(source, 2);
+            var compileError = DiagnosticResult
+                               .Error("CS0117", "'Square' does not contain a definition for 'Missing'")
+                               .AddLocation(source, 3);
+
+            await VerifyCSharpDiagnosticsAsync(source, expectedMissing, expectedUnsupported, compileError);
+        }
+
+        [Fact]
+        public async Task ClosedTotalPropertyPatternCoversCase()
+        {
+            const string args = "Shape shape";
+            const string test = @"
+        switch (shape)
+        {
+            case Square { Value: var _ }:
+                Console.WriteLine(""square"");
+                break;
+            case Circle:
+                Console.WriteLine(""circle"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(shape);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.ShapesWithProperty(args, test));
+        }
+
+        [Fact]
+        public async Task ClosedTotalPositionalPatternCoversCases()
+        {
+            const string args = "Result<string, string> result";
+            const string test = @"
+        ◊1⟦switch⟧ (result)
+        {
+            case Result<string, string>.Error(var _):
+                Console.WriteLine(""error"");
+                break;
+            case Result<string, string>.Success(var _):
+                Console.WriteLine(""success"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(result);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.ResultRecord(args, test));
+        }
+
+        [Fact]
+        public async Task ClosedConstrainedPositionalPatternIsConservative()
+        {
+            const string args = "Result<string, string> result";
+            const string test = @"
+        ◊1⟦switch⟧ (result)
+        {
+            case ◊2⟦Result<string, string>.Error(""known"")⟧:
+                Console.WriteLine(""error"");
+                break;
+            case Result<string, string>.Success(var _):
+                Console.WriteLine(""success"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(result);
+        }";
+
+            var source = CodeContext.ResultRecord(args, test);
+            var expectedMissing = DiagnosticResult
+                                  .Error("EM0003", "Subtype not handled by switch: TestNamespace.Error")
+                                  .AddLocation(source, 1);
+            var expectedUnsupported = DiagnosticResult
+                                     .Error("EM0101", "Case pattern not supported in exhaustive switch: Result<string, string>.Error(\"known\")")
+                                     .AddLocation(source, 2);
+
+            await VerifyCSharpDiagnosticsAsync(source, expectedMissing, expectedUnsupported);
+        }
+
+        [Fact]
+        public async Task ClosedVarPatternCoversCases()
+        {
+            const string args = "Shape shape";
+            const string test = @"
+        ◊1⟦switch⟧ (shape)
+        {
+            case var value:
+                Console.WriteLine(value);
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(shape);
+        }";
+
+            await VerifyCSharpDiagnosticsAsync(CodeContext.Shapes(args, test));
+        }
+
+        [Fact]
+        public async Task ClosedListPatternIsConservative()
+        {
+            const string args = "Shape shape";
+            const string test = @"
+        ◊1⟦switch⟧ (shape)
+        {
+            case ◊2⟦[1, ..]⟧:
+                Console.WriteLine(""one"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(shape);
+        }";
+
+            var source = CodeContext.ListShapes(args, test);
+            var expectedCircle = DiagnosticResult
+                                 .Error("EM0003", "Subtype not handled by switch: TestNamespace.Circle")
+                                 .AddLocation(source, 1);
+            var expectedSquare = DiagnosticResult
+                                 .Error("EM0003", "Subtype not handled by switch: TestNamespace.Square")
+                                 .AddLocation(source, 1);
+            var expectedUnsupported = DiagnosticResult
+                                     .Error("EM0101", "Case pattern not supported in exhaustive switch: [1, ..]")
+                                     .AddLocation(source, 2);
+
+            await VerifyCSharpDiagnosticsAsync(source, expectedCircle, expectedSquare, expectedUnsupported);
+        }
+
+        [Fact]
+        public async Task ListPatternIsConservativeAndDoesNotCrash()
+        {
+            const string args = "int[] values";
+            const string test = @"
+        switch (◊1⟦values⟧)
+        {
+            case ◊2⟦[1, ..]⟧:
+                Console.WriteLine(""one"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(values);
+        }";
+
+            var source = CodeContext.Basic(args, test);
+            var expectedOpen = DiagnosticResult
+                               .Error("EM0102", "Exhaustive switch must be on enum or closed type, was on: int[]")
+                               .AddLocation(source, 1);
+            var expectedUnsupported = DiagnosticResult
+                                     .Error("EM0101", "Case pattern not supported in exhaustive switch: [1, ..]")
+                                     .AddLocation(source, 2);
+
+            await VerifyCSharpDiagnosticsAsync(source, expectedOpen, expectedUnsupported);
+        }
+
+        [Fact]
+        public async Task InterfaceNotPatternIsConservative()
+        {
+            const string source = @"using ExhaustiveMatching;
+
+namespace TestNamespace
+{
+    [Closed(typeof(ICat), typeof(IDog))]
+    public interface IAnimal { }
+    public interface ICat : IAnimal { }
+    public interface IDog : IAnimal { }
+
+    class TestClass
+    {
+        void TestMethod(IAnimal animal)
+        {
+            ◊1⟦switch⟧ (animal)
+            {
+                case ◊2⟦not ICat⟧:
+                    break;
+                default:
+                    throw ExhaustiveMatch.Failed(animal);
+            }
+        }
+    }
+}";
+
+            var expectedCat = DiagnosticResult
+                             .Error("EM0003", "Subtype not handled by switch: TestNamespace.ICat")
+                             .AddLocation(source, 1);
+            var expectedDog = DiagnosticResult
+                             .Error("EM0003", "Subtype not handled by switch: TestNamespace.IDog")
+                             .AddLocation(source, 1);
+            var expectedUnsupported = DiagnosticResult
+                                     .Error("EM0101", "Case pattern not supported in exhaustive switch: not ICat")
+                                     .AddLocation(source, 2);
+
+            await VerifyCSharpDiagnosticsAsync(source, expectedCat, expectedDog, expectedUnsupported);
         }
 
         [Fact]
@@ -189,7 +815,7 @@ namespace ExhaustiveMatching.Analyzer.Tests
         {
             const string args = "Shape shape";
             const string test = @"
-        switch (shape)
+        ◊3⟦switch⟧ (shape)
         {
             case Square square:
                 Console.WriteLine(""Square: "" + square);
@@ -207,6 +833,9 @@ namespace ExhaustiveMatching.Analyzer.Tests
         }";
 
             var source = CodeContext.Shapes(args, test);
+            var expectedTriangle = DiagnosticResult
+                            .Error("EM0003", "Subtype not handled by switch: TestNamespace.Triangle")
+                            .AddLocation(source, 3);
             var expected1 = DiagnosticResult
                             .Error("EM0100", "When guard is not supported in an exhaustive switch")
                             .AddLocation(source, 1);
@@ -217,7 +846,7 @@ namespace ExhaustiveMatching.Analyzer.Tests
                             .Error("EM0101", "Case pattern not supported in exhaustive switch: 12")
                             .AddLocation(source, 2);
 
-            await VerifyCSharpDiagnosticsAsync(source, expected1, compileError, expected2);
+            await VerifyCSharpDiagnosticsAsync(source, expectedTriangle, expected1, compileError, expected2);
         }
 
         [Fact]
@@ -253,6 +882,28 @@ namespace ExhaustiveMatching.Analyzer.Tests
                             .AddLocation(source, 3);
 
             await VerifyCSharpDiagnosticsAsync(source, expected1, expected2, expected3);
+        }
+
+        [Fact]
+        public async Task ModernTypePatternIsRecognizedOnOpenType()
+        {
+            const string args = "object o";
+            const string test = @"
+        switch (◊1⟦o⟧)
+        {
+            case ◊2⟦string⟧:
+                Console.WriteLine(""string"");
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(o);
+        }";
+
+            var source = CodeContext.Basic(args, test);
+            var expected = DiagnosticResult
+                           .Error("EM0102", "Exhaustive switch must be on enum or closed type, was on: System.Object")
+                           .AddLocation(source, 1);
+
+            await VerifyCSharpDiagnosticsAsync(source, expected);
         }
 
         [Fact]

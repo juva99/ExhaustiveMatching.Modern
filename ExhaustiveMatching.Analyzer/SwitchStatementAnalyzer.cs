@@ -1,12 +1,8 @@
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using ExhaustiveMatching.Analyzer.Enums.Analysis;
 using ExhaustiveMatching.Analyzer.Enums.Semantics;
-using ExhaustiveMatching.Analyzer.Enums.Syntax;
-using ExhaustiveMatching.Analyzer.Enums.Utility;
 using ExhaustiveMatching.Analyzer.Semantics;
-using ExhaustiveMatching.Analyzer.Syntax;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -71,15 +67,42 @@ namespace ExhaustiveMatching.Analyzer
             INamedTypeSymbol enumType,
             bool nullRequired)
         {
-            var caseSwitchLabels = switchStatement.CaseSwitchLabels().ToReadOnlyList();
+            var evaluator = new EnumPatternCoverageEvaluator(
+                context,
+                enumType,
+                nullRequired,
+                pattern => context.ReportCasePatternNotSupported(pattern));
 
-            // If null were not required, and there were a null case, that would already be a compile error
-            if (nullRequired && !caseSwitchLabels.Any(CaseSwitchLabelSyntaxExtensions.IsNullCase))
+            var coverage = switchStatement.Sections
+                .SelectMany(s => s.Labels)
+                .Where(label => !(label is DefaultSwitchLabelSyntax))
+                .Where(label => !(label is CasePatternSwitchLabelSyntax pattern
+                                  && pattern.WhenClause != null))
+                .Select(evaluator.EvaluateLabel)
+                .Aggregate(
+                    new EnumPatternCoverage(
+                        Enumerable.Empty<object>(),
+                        coversNull: false,
+                        isKnown: true),
+                    CombineCoverage);
+
+            if (nullRequired && !coverage.CoversNull)
                 Diagnostics.ReportNotExhaustiveNullableEnumSwitch(context, switchStatement);
 
-            var caseExpressions = caseSwitchLabels.Select(l => l.Value);
-            var unusedSymbols = SwitchOnEnumAnalyzer.UnusedEnumValues(context, enumType, caseExpressions);
+            var unusedSymbols = SwitchOnEnumAnalyzer.UnusedEnumValues(
+                enumType,
+                coverage);
             Diagnostics.ReportNotExhaustiveEnumSwitch(context, switchStatement, unusedSymbols);
+        }
+
+        private static EnumPatternCoverage CombineCoverage(
+            EnumPatternCoverage left,
+            EnumPatternCoverage right)
+        {
+            return new EnumPatternCoverage(
+                left.Values.Concat(right.Values),
+                left.CoversNull || right.CoversNull,
+                left.IsKnown && right.IsKnown);
         }
 
         private static void AnalyzeSwitchOnClosed(
@@ -87,10 +110,15 @@ namespace ExhaustiveMatching.Analyzer
             SwitchStatementSyntax switchStatement,
             ITypeSymbol type)
         {
-            var switchLabels = switchStatement
-                .Sections.SelectMany(s => s.Labels).ToList();
+            if (type == null)
+                return;
 
-            CheckForNonPatternCases(context, switchLabels);
+            var switchLabels = switchStatement
+                .Sections.SelectMany(s => s.Labels)
+                .Where(label => !(label is DefaultSwitchLabelSyntax))
+                .Where(label => !(label is CasePatternSwitchLabelSyntax pattern
+                                  && pattern.WhenClause != null))
+                .ToList();
 
             var closedAttributeType = context.GetClosedAttributeType();
             var isClosed = type.HasAttribute(closedAttributeType);
@@ -106,10 +134,19 @@ namespace ExhaustiveMatching.Analyzer
                     .Where(t => t.IsConcrete());
             }
 
-            var typesUsed = switchLabels
-                .Select(switchLabel => switchLabel.GetMatchedTypeSymbol(context, type, allCases, isClosed))
-                .Where(t => t != null) // returns null for invalid case clauses
-                .ToImmutableHashSet();
+            var coverage = switchLabels
+                .Select(switchLabel => switchLabel.GetCoverage(
+                    context,
+                    type,
+                    allCases,
+                    allConcreteTypes,
+                    isClosed))
+                .Aggregate(
+                    ClosedPatternCoverage.Known(
+                        Enumerable.Empty<ITypeSymbol>(),
+                        canBeNegated: true,
+                        isAlwaysFalse: true),
+                    CombineCoverage);
 
             // If it is an open type, we don't want to actually check for uncovered types, but
             // we still needed to check the switch cases
@@ -120,22 +157,22 @@ namespace ExhaustiveMatching.Analyzer
             }
 
             var uncoveredTypes = allConcreteTypes
-                .Where(t => !typesUsed.Any(t.IsSubtypeOf))
+                .Where(t => !coverage.Types.Contains(t))
                 .ToArray();
 
             context.ReportNotExhaustiveObjectSwitch(switchStatement.SwitchKeyword, uncoveredTypes);
         }
 
-        private static void CheckForNonPatternCases(
-            SyntaxNodeAnalysisContext context,
-            List<SwitchLabelSyntax> switchLabels)
+        private static ClosedPatternCoverage CombineCoverage(
+            ClosedPatternCoverage left,
+            ClosedPatternCoverage right)
         {
-            foreach (var switchLabel in switchLabels.OfType<CaseSwitchLabelSyntax>())
-            {
-                if (!switchLabel.IsNullCase() && !switchLabel.Value.IsTypeIdentifier(context, out _))
-                    context.ReportCasePatternNotSupported(switchLabel);
-                // `case null:` is allowed
-            }
+            return ClosedPatternCoverage.Create(
+                left.Types.Concat(right.Types),
+                left.IsKnown && right.IsKnown,
+                left.CanBeNegated && right.CanBeNegated,
+                left.IsAlwaysTrue || right.IsAlwaysTrue,
+                left.IsAlwaysFalse && right.IsAlwaysFalse);
         }
     }
 }

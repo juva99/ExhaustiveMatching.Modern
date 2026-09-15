@@ -1,0 +1,31 @@
+name: Publish to NuGet.org
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-nuget
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Test
+        run: dotnet test ExhaustiveMatch.sln --configuration Release
+
+      - name: Pack
+        run: dotnet pack ExhaustiveMatching.Analyzer\ExhaustiveMatching.Analyzer.csproj --configuration Release --no-build --output artifacts
+
+      - name: Publish
+        run: dotnet nuget push artifacts\*.nupkg --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

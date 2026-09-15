@@ -1,36 +1,18 @@
-# Version Scheme for `ExhaustiveMatching.Analyzer`
+# Versioning for `ExhaustiveMatching.Modern`
 
-## Relevant Features in C# Language Versions
+`ExhaustiveMatching.Modern` follows semantic versioning. The package version is
+independent of the Roslyn package version.
 
-Each version of the C# language adds many new features, but most have no impact
-on the `ExhaustiveMatching.Analyzer`. This section lists which new features in
-each version in some way impact exhaustive matching and necessitate a newer
-version of the package to support.
+## Compatibility policy
 
-### C# 6
+The runtime API continues to target .NET Standard 2.0. Analyzer releases may
+raise their minimum Roslyn host version when a newer C# syntax model is needed.
+Such a change is documented in the release notes.
 
-*NOTE:* C# 6 is the oldest version of the language supported by Roslyn Analyzers and consequently the oldest version supported by `ExhaustiveMatching.Analyzer`. The features listed here may have been introduced before C# 6, but represent the basic level of support.
+| Package | Build SDK | Language | Roslyn | Runtime target |
+|---|---|---|---|---|
+| 1.0.x | .NET 10 | C# 14 | 5.0 | .NET Standard 2.0 |
 
-* `switch` Statements
-* `InvalidEnumArgumentException`
-* `ArgumentOutOfRangeException`
-* `InvalidOperationException`
-
-### C# 7.0
-
-* Pattern Matching
-  * [Declaration Patterns](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/operators/patterns#declaration-and-type-patterns)
-  * [Constant Patterns](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/operators/patterns#constant-pattern) for `null` and enum values
-
-### C# 8
-
-* `switch` Expressions
-
-### C# 9
-
-* Records
-* [Type Patterns](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/operators/patterns#declaration-and-type-patterns)
-
-### C# 10
-
-* Record Structs
+Patch releases contain compatible fixes. Minor releases add compatible
+analysis capabilities. Major releases may change the public runtime API,
+diagnostic contract, or minimum analyzer host.

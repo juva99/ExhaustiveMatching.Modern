@@ -23,9 +23,9 @@ namespace ExhaustiveMatching.Analyzer.Enums.Semantics
                 case SpecialType.System_UInt32:
                     return TypeCode.UInt32;
                 case SpecialType.System_Int64:
-                    return TypeCode.Int32;
+                    return TypeCode.Int64;
                 case SpecialType.System_UInt64:
-                    return TypeCode.UInt32;
+                    return TypeCode.UInt64;
 
                 // Floating Point Types
                 case SpecialType.System_Single:

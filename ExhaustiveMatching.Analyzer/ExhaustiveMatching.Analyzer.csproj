@@ -3,13 +3,26 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <IncludeBuildOutput>false</IncludeBuildOutput>
-    <AssemblyVersion>0.5.0.0</AssemblyVersion>
-    <FileVersion>0.5.0.0</FileVersion>
-    <Version>0.5.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.0.0</Version>
+    <PackageId>ExhaustiveMatching.Modern</PackageId>
+    <Title>ExhaustiveMatching.Modern</Title>
+    <Authors>juva99</Authors>
+    <Description>A modern C# analyzer that reports non-exhaustive switch statements and expressions for enums and closed type hierarchies.</Description>
+    <PackageTags>analyzers;roslyn;switch;exhaustive;pattern-matching;discriminated-union;sum-type</PackageTags>
+    <PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/juva99/ExhaustiveMatching.Modern</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/juva99/ExhaustiveMatching.Modern.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes>Initial modernized release with C# 14 tooling and modern pattern support.</PackageReleaseNotes>
+    <Copyright>Copyright 2019 Jeff Walker; modifications copyright 2026 ExhaustiveMatching.Modern contributors</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.9.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" PrivateAssets="all" />
     <PackageReference Update="NETStandard.Library" PrivateAssets="all" />
   </ItemGroup>
 
@@ -19,7 +32,40 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ExhaustiveMatching.Analyzer.Enums\ExhaustiveMatching.Analyzer.Enums.csproj" />
+    <ProjectReference Include="..\ExhaustiveMatching\ExhaustiveMatching.csproj"
+                      PrivateAssets="all"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\ExhaustiveMatching.Analyzer.Enums\Analysis\*.cs"
+             Link="Enums\Analysis\%(Filename)%(Extension)" />
+    <Compile Include="..\ExhaustiveMatching.Analyzer.Enums\Semantics\*.cs"
+             Link="Enums\Semantics\%(Filename)%(Extension)" />
+    <Compile Include="..\ExhaustiveMatching.Analyzer.Enums\Syntax\*.cs"
+             Link="Enums\Syntax\%(Filename)%(Extension)" />
+    <Compile Include="..\ExhaustiveMatching.Analyzer.Enums\Utility\*.cs"
+             Link="Enums\Utility\%(Filename)%(Extension)" />
+    <Compile Include="..\ExhaustiveMatching.Analyzer.Enums\TypeNames.cs"
+             Link="Enums\TypeNames.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="..\README.md" Pack="true" PackagePath="" />
+    <None Include="..\CHANGELOG.md" Pack="true" PackagePath="" />
+    <None Include="..\ExhaustiveMatching\bin\$(Configuration)\netstandard2.0\ExhaustiveMatching.dll"
+          Pack="true"
+          PackagePath="lib\netstandard2.0" />
+    <None Include="..\ExhaustiveMatching\bin\$(Configuration)\netstandard2.0\ExhaustiveMatching.pdb"
+          Pack="true"
+          PackagePath="lib\netstandard2.0" />
+    <None Include="$(OutputPath)ExhaustiveMatching.Analyzer.dll"
+          Pack="true"
+          PackagePath="analyzers\dotnet\cs" />
+    <None Include="$(OutputPath)ExhaustiveMatching.Analyzer.pdb"
+          Pack="true"
+          PackagePath="analyzers\dotnet\cs" />
   </ItemGroup>
 
 </Project>

@@ -17,6 +17,8 @@ namespace ExhaustiveMatching.Analyzer.Enums.Syntax
                     return true;
                 case CastExpressionSyntax castExpression:
                     return castExpression.Expression.IsNullConstantExpression();
+                case ParenthesizedExpressionSyntax parenthesizedExpression:
+                    return parenthesizedExpression.Expression.IsNullConstantExpression();
                 default:
                     return false;
             }

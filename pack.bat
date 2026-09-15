@@ -1,2 +1,2 @@
-.\tools\nuget.exe pack ExhaustiveMatching.Analyzer.nuspec
-PAUSE
+@echo off
+dotnet pack ExhaustiveMatching.Analyzer\ExhaustiveMatching.Analyzer.csproj --configuration Release --output artifacts

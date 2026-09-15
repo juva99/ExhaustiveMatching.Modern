@@ -1,9 +1,7 @@
-using System.Collections.Immutable;
 using System.Linq;
 using ExhaustiveMatching.Analyzer.Enums.Analysis;
 using ExhaustiveMatching.Analyzer.Enums.Semantics;
 using ExhaustiveMatching.Analyzer.Semantics;
-using ExhaustiveMatching.Analyzer.Syntax;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -36,10 +34,11 @@ namespace ExhaustiveMatching.Analyzer
             SyntaxNodeAnalysisContext context,
             SwitchExpressionSyntax switchExpression)
         {
-            var discardArm = switchExpression.Arms.LastOrDefault(a => a.Pattern is DiscardPatternSyntax);
+            var discardArm = switchExpression.Arms.LastOrDefault(
+                a => IsExhaustiveFallbackPattern(a.Pattern));
 
-            // If there is no discard arm or it doesn't throw, we assume the
-            // dev doesn't want an exhaustive match
+            // If there is no unguarded fallback arm or it doesn't throw, we
+            // assume the dev doesn't want an exhaustive match.
             if (discardArm?.Expression is ThrowExpressionSyntax throwExpression)
                 return ExpressionAnalyzer.SwitchStatementKindForThrown(context, throwExpression.Expression);
 
@@ -61,15 +60,42 @@ namespace ExhaustiveMatching.Analyzer
             INamedTypeSymbol enumType,
             bool nullRequired)
         {
-            var patterns = switchExpression.Arms.Select(a => a.Pattern).ToList();
+            var discardArm = switchExpression.Arms.LastOrDefault(
+                a => IsExhaustiveFallbackPattern(a.Pattern));
+            var evaluator = new EnumPatternCoverageEvaluator(
+                context,
+                enumType,
+                nullRequired,
+                pattern => context.ReportCasePatternNotSupported(pattern));
 
-            // If null were not required, and there were a null case, that would already be a compile error
-            if (nullRequired && !patterns.Any(PatternSyntaxExtensions.IsNullPattern))
+            var coverage = switchExpression.Arms
+                .Where(a => !ReferenceEquals(a, discardArm))
+                .Where(a => a.WhenClause == null)
+                .Select(a => evaluator.EvaluatePattern(a.Pattern))
+                .Aggregate(
+                    new EnumPatternCoverage(
+                        Enumerable.Empty<object>(),
+                        coversNull: false,
+                        isKnown: true),
+                    CombineCoverage);
+
+            if (nullRequired && !coverage.CoversNull)
                 Diagnostics.ReportNotExhaustiveNullableEnumSwitch(context, switchExpression);
 
-            var caseExpressions = patterns.OfType<ConstantPatternSyntax>().Select(p => p.Expression);
-            var unusedSymbols = SwitchOnEnumAnalyzer.UnusedEnumValues(context, enumType, caseExpressions);
+            var unusedSymbols = SwitchOnEnumAnalyzer.UnusedEnumValues(
+                enumType,
+                coverage);
             Diagnostics.ReportNotExhaustiveEnumSwitch(context, switchExpression, unusedSymbols);
+        }
+
+        private static EnumPatternCoverage CombineCoverage(
+            EnumPatternCoverage left,
+            EnumPatternCoverage right)
+        {
+            return new EnumPatternCoverage(
+                left.Values.Concat(right.Values),
+                left.CoversNull || right.CoversNull,
+                left.IsKnown && right.IsKnown);
         }
 
         private static void AnalyzeSwitchOnClosed(
@@ -77,7 +103,16 @@ namespace ExhaustiveMatching.Analyzer
             SwitchExpressionSyntax switchExpression,
             ITypeSymbol type)
         {
-            var patterns = switchExpression.Arms.Select(a => a.Pattern).ToList();
+            if (type == null)
+                return;
+
+            var discardArm = switchExpression.Arms.LastOrDefault(
+                a => IsExhaustiveFallbackPattern(a.Pattern));
+            var patterns = switchExpression.Arms
+                .Where(a => !ReferenceEquals(a, discardArm))
+                .Where(a => a.WhenClause == null)
+                .Select(a => a.Pattern)
+                .ToList();
 
             var closedAttributeType = context.GetClosedAttributeType();
             var isClosed = type.HasAttribute(closedAttributeType);
@@ -93,10 +128,19 @@ namespace ExhaustiveMatching.Analyzer
                     .Where(t => t.IsConcrete());
             }
 
-            var typesUsed = patterns
-                .Select(pattern => pattern.GetMatchedTypeSymbol(context, type, allCases, isClosed))
-                .Where(t => t != null) // returns null for invalid case clauses
-                .ToImmutableHashSet();
+            var coverage = patterns
+                .Select(pattern => pattern.GetCoverage(
+                    context,
+                    type,
+                    allCases,
+                    allConcreteTypes,
+                    isClosed))
+                .Aggregate(
+                    ClosedPatternCoverage.Known(
+                        Enumerable.Empty<ITypeSymbol>(),
+                        canBeNegated: true,
+                        isAlwaysFalse: true),
+                    CombineCoverage);
 
             // If it is an open type, we don't want to actually check for uncovered types, but
             // we still needed to check the switch cases
@@ -107,10 +151,30 @@ namespace ExhaustiveMatching.Analyzer
             }
 
             var uncoveredTypes = allConcreteTypes
-                .Where(t => !typesUsed.Any(t.IsSubtypeOf))
+                .Where(t => !coverage.Types.Contains(t))
                 .ToArray();
 
             context.ReportNotExhaustiveObjectSwitch(switchExpression.SwitchKeyword, uncoveredTypes);
+        }
+
+        private static bool IsExhaustiveFallbackPattern(PatternSyntax pattern)
+        {
+            while (pattern is ParenthesizedPatternSyntax parenthesized)
+                pattern = parenthesized.Pattern;
+
+            return pattern is DiscardPatternSyntax || pattern is VarPatternSyntax;
+        }
+
+        private static ClosedPatternCoverage CombineCoverage(
+            ClosedPatternCoverage left,
+            ClosedPatternCoverage right)
+        {
+            return ClosedPatternCoverage.Create(
+                left.Types.Concat(right.Types),
+                left.IsKnown && right.IsKnown,
+                left.CanBeNegated && right.CanBeNegated,
+                left.IsAlwaysTrue || right.IsAlwaysTrue,
+                left.IsAlwaysFalse && right.IsAlwaysFalse);
         }
     }
 }

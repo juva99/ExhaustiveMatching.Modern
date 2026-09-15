@@ -17,6 +17,12 @@ namespace ExhaustiveMatching.Analyzer.Enums.Semantics
             => typeSymbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)
                == typeof(InvalidEnumArgumentException).FullName;
 
+        public static bool IsExhaustiveMatchFailedException(
+            this ITypeSymbol typeSymbol)
+            => typeSymbol.ToDisplayString(
+                   SymbolDisplayFormat.CSharpErrorMessageFormat)
+               == TypeNames.ExhaustiveMatchFailedException;
+
         public static bool IsEnum(
             this ITypeSymbol type,
             SyntaxNodeAnalysisContext context,

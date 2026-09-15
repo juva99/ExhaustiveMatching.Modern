@@ -226,6 +226,49 @@ namespace TestNamespace
         }
 
         [Fact]
+        public async Task NullArrayArgumentToClosedAttributeHandled()
+        {
+            const string source = @"using ExhaustiveMatching;
+
+namespace TestNamespace
+{
+    [Closed(null)]
+    public abstract class Shape { }
+}";
+
+            await VerifyCSharpDiagnosticsAsync(source);
+        }
+
+        [Fact]
+        public async Task ClosedAttributeWithoutArgumentsHandled()
+        {
+            const string source = @"using ExhaustiveMatching;
+
+namespace TestNamespace
+{
+    [Closed]
+    public abstract class Shape { }
+}";
+
+            await VerifyCSharpDiagnosticsAsync(source);
+        }
+
+        [Fact]
+        public async Task NullTypeArgumentToClosedAttributeHandled()
+        {
+            const string source = @"using ExhaustiveMatching;
+using System;
+
+namespace TestNamespace
+{
+    [Closed((Type)null)]
+    public abstract class Shape { }
+}";
+
+            await VerifyCSharpDiagnosticsAsync(source);
+        }
+
+        [Fact]
         public async Task DuplicateClosedAttribute()
         {
             const string source = @"using ExhaustiveMatching;

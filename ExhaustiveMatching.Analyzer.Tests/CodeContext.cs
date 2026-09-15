@@ -34,6 +34,50 @@ class TestClass
             return string.Format(context, args, body);
         }
 
+        public static string RangeEnum(string args, string body)
+        {
+            const string context = @"using System;
+using System.ComponentModel; // InvalidEnumArgumentException
+using ExhaustiveMatching;
+
+enum RangeEnum {{ Low = 1, Middle = 5, High = 9 }}
+
+class TestClass
+{{
+    void TestMethod({0})
+    {{{1}
+    }}
+}}";
+            return string.Format(context, args, body);
+        }
+
+        public static string WideEnum(string args, string body)
+        {
+            const string context = @"using System;
+using System.ComponentModel; // InvalidEnumArgumentException
+using ExhaustiveMatching;
+
+enum WideEnum : long
+{{
+    Low = long.MinValue,
+    High = 4294967296L
+}}
+
+enum UnsignedWideEnum : ulong
+{{
+    Low = 1UL,
+    High = 18446744073709551615UL
+}}
+
+class TestClass
+{{
+    void TestMethod({0})
+    {{{1}
+    }}
+}}";
+            return string.Format(context, args, body);
+        }
+
         public static string Shapes(string args, string body)
         {
             const string context = @"using System;
@@ -60,6 +104,60 @@ namespace TestNamespace
     public abstract class Triangle : Shape {{ }} // abstract to show abstract leaf types are checked
     public class EquilateralTriangle : Triangle {{ }}
     public class IsoscelesTriangle : Triangle {{ }}
+}}";
+            return string.Format(context, args, body);
+        }
+
+        public static string ShapesWithProperty(string args, string body)
+        {
+            const string context = @"using System;
+using ExhaustiveMatching;
+using TestNamespace;
+
+class TestClass
+{{
+    void TestMethod({0})
+    {{{1}
+    }}
+}}
+
+namespace TestNamespace
+{{
+    [Closed(typeof(Square), typeof(Circle))]
+    public abstract class Shape {{ }}
+    public sealed class Square : Shape
+    {{
+        public int Value {{ get; }}
+        public Square(int value) {{ Value = value; }}
+    }}
+    public sealed class Circle : Shape {{ }}
+}}";
+            return string.Format(context, args, body);
+        }
+
+        public static string ListShapes(string args, string body)
+        {
+            const string context = @"using System;
+using ExhaustiveMatching;
+using TestNamespace;
+
+class TestClass
+{{
+    void TestMethod({0})
+    {{{1}
+    }}
+}}
+
+namespace TestNamespace
+{{
+    [Closed(typeof(Square), typeof(Circle))]
+    public abstract class Shape
+    {{
+        public int Length {{ get; }} = 0;
+        public int this[int index] => 0;
+    }}
+    public sealed class Square : Shape {{ }}
+    public sealed class Circle : Shape {{ }}
 }}";
             return string.Format(context, args, body);
         }
