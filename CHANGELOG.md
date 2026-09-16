@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1 - 2026-09-16
+
+- Added .NET 8 support alongside .NET 10, including runtime and Roslyn 4.8
+  compatibility coverage.
+
 ## 1.0.0 - 2026-09-15
 
 - Forked and renamed the package to `ExhaustiveMatching.Modern`.

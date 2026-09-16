@@ -19,8 +19,8 @@ dotnet add package ExhaustiveMatching.Modern
 Install the package in every project that contains exhaustive switches or
 declares, inherits, or implements types marked with `ClosedAttribute`.
 
-Version 1.0.0 uses the .NET 10 SDK, C# 14, and Microsoft.CodeAnalysis 5.0. The
-runtime API targets .NET Standard 2.0. Analyzer hosts must support Roslyn 5.0 or
+The package supports projects targeting .NET 8 and .NET 10. The runtime API and
+analyzer target .NET Standard 2.0, and the analyzer supports Roslyn 4.8 or
 newer.
 
 ## Quick start
@@ -253,7 +253,8 @@ The analyzer also recognizes the original enum convention using
 
 ## Building
 
-The repository is pinned to the .NET 10 SDK:
+The repository uses the .NET 10 SDK. Install both the .NET 8 and .NET 10
+runtimes to run the full test matrix:
 
 ```powershell
 dotnet test ExhaustiveMatch.sln --configuration Release

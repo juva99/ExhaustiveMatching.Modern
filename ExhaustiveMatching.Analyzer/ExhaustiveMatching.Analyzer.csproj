@@ -4,8 +4,8 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
-    <Version>1.0.0</Version>
+    <FileVersion>1.0.1.0</FileVersion>
+    <Version>1.0.1</Version>
     <PackageId>ExhaustiveMatching.Modern</PackageId>
     <Title>ExhaustiveMatching.Modern</Title>
     <Authors>juva99</Authors>
@@ -17,12 +17,12 @@
     <RepositoryUrl>https://github.com/juva99/ExhaustiveMatching.Modern.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Initial modernized release with C# 14 tooling and modern pattern support.</PackageReleaseNotes>
+    <PackageReleaseNotes>Adds .NET 8 support alongside .NET 10, with compatibility for Roslyn 4.8 and newer.</PackageReleaseNotes>
     <Copyright>Copyright 2019 Jeff Walker; modifications copyright 2026 ExhaustiveMatching.Modern contributors</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
     <PackageReference Update="NETStandard.Library" PrivateAssets="all" />
   </ItemGroup>
 
